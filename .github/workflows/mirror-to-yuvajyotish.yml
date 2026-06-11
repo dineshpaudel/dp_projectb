@@ -17,11 +17,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout source repository
-        uses: actions/checkout@v5
+      - name: Checkout source repository with full history
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          persist-credentials: false
+          fetch-tags: true
 
       - name: Push to target repository without deleting anything
         env:
@@ -35,12 +35,15 @@ jobs:
             exit 1
           fi
 
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
           git remote add mirror "https://x-access-token:${ACCOUNT_B_PAT}@github.com/${TARGET_REPO}.git"
 
-          echo "Fetching all branches and tags from source..."
-          git fetch origin '+refs/heads/*:refs/remotes/origin/*' --tags
+          echo "Checking target repository access..."
+          git ls-remote mirror > /dev/null
 
-          echo "Pushing all branches to target repo..."
+          echo "Pushing all source branches to target repo..."
           for branch in $(git for-each-ref --format='%(refname:strip=3)' refs/remotes/origin | grep -v '^HEAD$'); do
             echo "Pushing branch: ${branch}"
             git push mirror "refs/remotes/origin/${branch}:refs/heads/${branch}"
@@ -49,4 +52,4 @@ jobs:
           echo "Pushing all tags to target repo..."
           git push mirror --tags
 
-          echo "Mirror completed successfully."
+          echo "Safer mirror completed successfully."
