@@ -18,38 +18,47 @@ jobs:
 
     steps:
       - name: Checkout source repository with full history
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
           fetch-tags: true
 
-      - name: Push to target repository without deleting anything
+      - name: Push branches and tags to yuvajyotish/yj_projectb
         env:
           ACCOUNT_B_PAT: ${{ secrets.ACCOUNT_B_PAT }}
           TARGET_REPO: yuvajyotish/yj_projectb
         run: |
           set -euo pipefail
 
+          echo "Checking whether ACCOUNT_B_PAT exists..."
           if [ -z "${ACCOUNT_B_PAT}" ]; then
-            echo "ERROR: ACCOUNT_B_PAT secret is missing."
+            echo "ERROR: ACCOUNT_B_PAT secret is missing or empty."
             exit 1
           fi
 
+          echo "Configuring Git user..."
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
+          echo "Adding target remote..."
           git remote add mirror "https://x-access-token:${ACCOUNT_B_PAT}@github.com/${TARGET_REPO}.git"
 
-          echo "Checking target repository access..."
-          git ls-remote mirror > /dev/null
+          echo "Testing access to target repository..."
+          git ls-remote mirror
 
-          echo "Pushing all source branches to target repo..."
+          echo "Fetching all source branches and tags..."
+          git fetch origin "+refs/heads/*:refs/remotes/origin/*" "+refs/tags/*:refs/tags/*"
+
+          echo "Available source branches:"
+          git branch -r
+
+          echo "Pushing all branches without deleting target branches..."
           for branch in $(git for-each-ref --format='%(refname:strip=3)' refs/remotes/origin | grep -v '^HEAD$'); do
             echo "Pushing branch: ${branch}"
             git push mirror "refs/remotes/origin/${branch}:refs/heads/${branch}"
           done
 
-          echo "Pushing all tags to target repo..."
+          echo "Pushing tags without deleting target tags..."
           git push mirror --tags
 
           echo "Safer mirror completed successfully."
